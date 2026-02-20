@@ -3,7 +3,7 @@
 
 <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
   <title>
-  My First Post · oussachi
+  Building a binary loader · oussachi
 </title>
   <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,19 +13,29 @@
 
 
 <meta name="author" content="Dairi Oussama Abderrahmane">
-<meta name="description" content="Hello world, this is my first Hugo post!">
-<meta name="keywords" content="cybersecurity,llm,network exploitation,ctf,5g security">
+<meta name="description" content="
+  Introduction
+  
+    
+    Link to heading
+  
+
+Binary loading and analysis are critical in reverse engineering, debugging, and security research. While Linux provides ELF as the standard binary format, parsing it manually is tedious and error-prone.
+This project implements a custom ELF loader inspired by Practical Binary Analysis, but with fixes and improvements for correctness and usability. We rely on libbfd, the GNU Binary File Descriptor library, to simplify low-level binary parsing across formats.">
+<meta name="keywords" content="">
 
 
 
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="My First Post">
-  <meta name="twitter:description" content="Hello world, this is my first Hugo post!">
+  <meta name="twitter:title" content="Building a binary loader">
+  <meta name="twitter:description" content="Introduction Link to heading Binary loading and analysis are critical in reverse engineering, debugging, and security research. While Linux provides ELF as the standard binary format, parsing it manually is tedious and error-prone.
+This project implements a custom ELF loader inspired by Practical Binary Analysis, but with fixes and improvements for correctness and usability. We rely on libbfd, the GNU Binary File Descriptor library, to simplify low-level binary parsing across formats.">
 
 <meta property="og:url" content="http://localhost:1313/posts/my-first-post/">
   <meta property="og:site_name" content="oussachi">
-  <meta property="og:title" content="My First Post">
-  <meta property="og:description" content="Hello world, this is my first Hugo post!">
+  <meta property="og:title" content="Building a binary loader">
+  <meta property="og:description" content="Introduction Link to heading Binary loading and analysis are critical in reverse engineering, debugging, and security research. While Linux provides ELF as the standard binary format, parsing it manually is tedious and error-prone.
+This project implements a custom ELF loader inspired by Practical Binary Analysis, but with fixes and improvements for correctness and usability. We rely on libbfd, the GNU Binary File Descriptor library, to simplify low-level binary parsing across formats.">
   <meta property="og:locale" content="en_us">
   <meta property="og:type" content="article">
     <meta property="article:section" content="posts">
@@ -38,14 +48,14 @@
 <link rel="canonical" href="http://localhost:1313/posts/my-first-post/">
 
 
-<link rel="preload" href="/fonts/fa-brands-400.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="/fonts/fa-regular-400.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="/fonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../../fonts/fa-brands-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../../fonts/fa-regular-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../../fonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin>
 
 
   
   
-  <link rel="stylesheet" href="/css/coder.css" media="screen">
+  <link rel="stylesheet" href="../../css/coder.css" media="screen">
 
 
 
@@ -55,7 +65,7 @@
   
     
     
-    <link rel="stylesheet" href="/css/coder-dark.css" media="screen">
+    <link rel="stylesheet" href="../../css/coder-dark.css" media="screen">
   
 
 
@@ -63,22 +73,22 @@
  
   
     
-    <link rel="stylesheet" href="/css/custom.css" media="screen">
+    <link rel="stylesheet" href="../../css/custom.css" media="screen">
   
 
 
 
 
 
-<link rel="icon" type="image/svg+xml" href="/images/favicon.svg" sizes="any">
-<link rel="icon" type="image/png" href="/images/favicon-32x32.png" sizes="32x32">
-<link rel="icon" type="image/png" href="/images/favicon-16x16.png" sizes="16x16">
+<link rel="icon" type="image/svg+xml" href="../../images/favicon.svg" sizes="any">
+<link rel="icon" type="image/png" href="../../images/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="../../images/favicon-16x16.png" sizes="16x16">
 
-<link rel="apple-touch-icon" href="/images/apple-touch-icon.png">
-<link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+<link rel="apple-touch-icon" href="../../images/apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../../images/apple-touch-icon.png">
 
-<link rel="manifest" href="/site.webmanifest">
-<link rel="mask-icon" href="/images/safari-pinned-tab.svg" color="#5bbad5">
+<link rel="manifest" href="../../site.webmanifest">
+<link rel="mask-icon" href="../../images/safari-pinned-tab.svg" color="#5bbad5">
 
 
 
@@ -121,19 +131,19 @@
         
           
             <li class="navigation-item">
-              <a class="navigation-link " href="/posts/">Blog</a>
+              <a class="navigation-link " href="../../posts/">Blog</a>
             </li>
           
             <li class="navigation-item">
-              <a class="navigation-link " href="/projects/">Projects</a>
+              <a class="navigation-link " href="../../projects/">Projects</a>
             </li>
           
             <li class="navigation-item">
-              <a class="navigation-link " href="/about/">About</a>
+              <a class="navigation-link " href="../../about/">About</a>
             </li>
           
             <li class="navigation-item">
-              <a class="navigation-link " href="/cv/">CV</a>
+              <a class="navigation-link " href="../../cv/">CV</a>
             </li>
           
         
@@ -152,7 +162,7 @@
         <div class="post-title">
           <h1 class="title">
             <a class="title-link" href="http://localhost:1313/posts/my-first-post/">
-              My First Post
+              Building a binary loader
             </a>
           </h1>
         </div>
@@ -166,7 +176,7 @@
             </span>
             <span class="reading-time">
               <i class="fa-solid fa-clock" aria-hidden="true"></i>
-              One-minute read
+              3-minute read
             </span>
           </div>
           
@@ -177,7 +187,106 @@
 
       <div class="post-content">
         
-        <p>Hello world, this is my first Hugo post!</p>
+        <h1 id="introduction">
+  Introduction
+  <a class="heading-link" href="#introduction">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h1>
+<p>Binary loading and analysis are critical in reverse engineering, debugging, and security research. While Linux provides ELF as the standard binary format, parsing it manually is tedious and error-prone.</p>
+<p>This project implements a <strong>custom ELF loader</strong> inspired by <em>Practical Binary Analysis</em>, but with fixes and improvements for correctness and usability. We rely on <strong>libbfd</strong>, the GNU Binary File Descriptor library, to simplify low-level binary parsing across formats.</p>
+<p>The goal is simple: <strong>understand, parse, and load binaries into memory</strong> while extracting their metadata, symbols, and sections — all in a structured, reusable loader interface.</p>
+<hr>
+<h1 id="a-primer-on-the-elf-format">
+  A Primer on the ELF Format
+  <a class="heading-link" href="#a-primer-on-the-elf-format">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h1>
+<p>On Linux, the <strong>Executable and Linkable Format (ELF)</strong> is the standard for binaries, shared libraries, and object files. Understanding ELF is essential when building a loader.</p>
+<p>An ELF file has four main components:</p>
+<ol>
+<li><strong>ELF Header</strong> – at the very beginning, describes file type, architecture, entry point (<code>e_entry</code>), and offsets to tables.</li>
+<li><strong>Program Header Table</strong> – describes segments (memory chunks the OS loads), used at runtime.</li>
+<li><strong>Sections</strong> – logical divisions like <code>.text</code>, <code>.data</code>, <code>.bss</code>, <code>.rodata</code>, used mainly at link time.</li>
+<li><strong>Section Header Table</strong> – describes all sections.</li>
+</ol>
+<h2 id="key-sections">
+  Key Sections
+  <a class="heading-link" href="#key-sections">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h2>
+<ul>
+<li><strong><code>.text</code></strong> – main executable code, including <code>_start</code>.</li>
+<li><strong><code>.data</code> / <code>.bss</code> / <code>.rodata</code></strong> – program data: initialized, uninitialized, and read-only constants.</li>
+<li><strong><code>.init</code> / <code>.fini</code></strong> – code run before and after <code>main</code>.</li>
+<li><strong><code>.init_array</code> / <code>.fini_array</code></strong> – arrays of constructor/destructor function pointers.</li>
+<li><strong><code>.plt</code> / <code>.got</code> / <code>.got.plt</code></strong> – support dynamic linking with lazy symbol resolution.</li>
+<li><strong><code>.rel.*</code> / <code>.rela.*</code></strong> – relocation entries for addresses that need adjustment.</li>
+<li><strong><code>.dynamic</code></strong> – tells the dynamic linker which libraries, tables, and init/fini functions to use.</li>
+</ul>
+<blockquote>
+<p>Tip: use <code>readelf --sections &lt;binary&gt;</code> to inspect sections.</p>
+</blockquote>
+<h2 id="segments-vs-sections">
+  Segments vs Sections
+  <a class="heading-link" href="#segments-vs-sections">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h2>
+<ul>
+<li><strong>Sections</strong> = for linkers &amp; static analysis</li>
+<li><strong>Segments</strong> = for runtime loading by the OS</li>
+</ul>
+<p>A segment may contain multiple sections. The loader maps segments into memory and then jumps to <code>e_entry</code>.</p>
+<blockquote>
+<p>Sections are convenient for analysis; segments are what actually run.</p>
+</blockquote>
+<hr>
+<h1 id="a-primer-on-libbfd">
+  A Primer on libbfd
+  <a class="heading-link" href="#a-primer-on-libbfd">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h1>
+<p><strong>libbfd</strong> (Binary File Descriptor library) is part of GNU Binutils and provides a uniform interface to read, inspect, and manipulate binary files across architectures and formats (ELF, PE, Mach-O, etc.).</p>
+<p>Key points:</p>
+<ul>
+<li>
+<p>Abstracts away file format details — you don’t need to parse ELF headers manually.</p>
+</li>
+<li>
+<p>Provides functions to access <strong>sections, symbols, relocations, and segments</strong>.</p>
+</li>
+<li>
+<p>Central objects:</p>
+<ul>
+<li><code>bfd</code> → represents an open binary file.</li>
+<li><code>asection</code> → represents a section in the binary.</li>
+<li><code>symbol_table</code> → contains symbols (functions, globals).</li>
+</ul>
+</li>
+<li>
+<p>Typical workflow:</p>
+<ol>
+<li>Open a file with <code>bfd_openr</code>.</li>
+<li>Check format using <code>bfd_check_format</code>.</li>
+<li>Read sections with <code>bfd_get_section_by_name</code> or iterate over all.</li>
+<li>Read symbols with <code>bfd_canonicalize_symtab</code>.</li>
+</ol>
+</li>
+</ul>
+<p>Essentially, libbfd acts as a <strong>cross-format parser</strong>, letting you focus on loader logic rather than binary quirks.</p>
+<blockquote>
+<p>Caveat: libbfd is powerful but sometimes tricky — it requires proper initialization and memory management. Many “gotchas” exist, which we address in our loader.</p>
+</blockquote>
+<hr>
 
       </div>
 
@@ -220,7 +329,7 @@
 
   
   
-  <script src="/js/coder.js"></script>
+  <script src="../../js/coder.js"></script>
   
 
   
