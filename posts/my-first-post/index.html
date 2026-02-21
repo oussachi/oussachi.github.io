@@ -176,7 +176,7 @@ This project implements a custom ELF loader inspired by Practical Binary Analysi
             </span>
             <span class="reading-time">
               <i class="fa-solid fa-clock" aria-hidden="true"></i>
-              3-minute read
+              5-minute read
             </span>
           </div>
           
@@ -287,6 +287,171 @@ This project implements a custom ELF loader inspired by Practical Binary Analysi
 <p>Caveat: libbfd is powerful but sometimes tricky — it requires proper initialization and memory management. Many “gotchas” exist, which we address in our loader.</p>
 </blockquote>
 <hr>
+<h1 id="designing-the-loader-interface">
+  Designing the Loader Interface
+  <a class="heading-link" href="#designing-the-loader-interface">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h1>
+<p>Before implementing the loader, we define a clean API.</p>
+<p>This loader is <strong>not</strong> a dynamic loader like the OS provides. We’re building a loader for <strong>static analysis tools</strong> — something that parses binaries and exposes their structure in a simple, reusable way, and thus two important design decisions are :</p>
+<ol>
+<li><strong>Hide libbfd completely.</strong>
+The interface must not expose any <code>bfd</code> types or functions.</li>
+<li><strong>Keep it minimal.</strong>
+Only expose what analysis tools actually need: sections, symbols, entry point, architecture, etc..</li>
+</ol>
+<p>The API revolves around three classes: <code>Binary</code>, <code>Section</code>, and <code>Symbol</code>.</p>
+<hr>
+<h2 id="core-abstractions">
+  Core Abstractions
+  <a class="heading-link" href="#core-abstractions">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h2>
+<h3 id="symbol">
+  <code>Symbol</code>
+  <a class="heading-link" href="#symbol">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h3>
+<p>Represents a function or global symbol.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">Symbol</span> {
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">public</span><span style="color:#ff79c6">:</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">enum</span> <span style="color:#50fa7b">SymbolType</span> {
+</span></span><span style="display:flex;"><span>        SYM_TYPE_UKN <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>,
+</span></span><span style="display:flex;"><span>        SYM_TYPE_FUNC <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    SymbolType type;
+</span></span><span style="display:flex;"><span>    std<span style="color:#ff79c6">::</span>string name;
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd">uint64_t</span> addr;
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>Binaries may contain many symbol types, but the loader intentionally simplifies this.</p>
+<p>Only <strong>function symbols</strong> are exposed, each Symbol contains a <code>type</code> (<code>SYM_TYPE_FUNC</code>), <code>name</code> and an <code>addr</code> (function start address).</p>
+<hr>
+<h3 id="section">
+  <code>Section</code>
+  <a class="heading-link" href="#section">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h3>
+<p>Represents a binary section.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">Section</span> {
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">public</span><span style="color:#ff79c6">:</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">enum</span> <span style="color:#50fa7b">SectionType</span> {
+</span></span><span style="display:flex;"><span>        SEC_TYPE_NONE <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>,
+</span></span><span style="display:flex;"><span>        SEC_TYPE_CODE <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">1</span>,
+</span></span><span style="display:flex;"><span>        SEC_TYPE_DATA <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">2</span>
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    Binary <span style="color:#ff79c6">*</span>binary;
+</span></span><span style="display:flex;"><span>    std<span style="color:#ff79c6">::</span>string name;
+</span></span><span style="display:flex;"><span>    SectionType type;
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd">uint64_t</span> vma;
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd">uint64_t</span> size;
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd">uint8_t</span> <span style="color:#ff79c6">*</span>bytes;
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>It stores the following fields : <code>name</code>, <code>type</code> (<code>SEC_TYPE_CODE</code> or <code>SEC_TYPE_DATA</code>), <code>vma</code> (starting virtual address), <code>size</code>, <code>bytes</code> (raw contents) and a pointer back to its parent Binary.</p>
+<p>A key helper method:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#8be9fd">bool</span> <span style="color:#50fa7b">contains</span>(<span style="color:#8be9fd">uint64_t</span> addr);
+</span></span></code></pre></div><p>This checks whether an address falls inside the section, which proves useful during disassembly and analysis when resolving instruction addresses.</p>
+<hr>
+<h3 id="binary">
+  <code>Binary</code>
+  <a class="heading-link" href="#binary">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h3>
+<p>This is the main container.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">Binary</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">public</span><span style="color:#ff79c6">:</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">enum</span> <span style="color:#50fa7b">BinaryType</span> {
+</span></span><span style="display:flex;"><span>        BIN_TYPE_AUTO <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>,
+</span></span><span style="display:flex;"><span>        BIN_TYPE_ELF <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">1</span>,
+</span></span><span style="display:flex;"><span>        BIN_TYPE_PE <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">2</span>
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">enum</span> <span style="color:#50fa7b">BinaryArch</span> {
+</span></span><span style="display:flex;"><span>        ARCH_NONE <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>,
+</span></span><span style="display:flex;"><span>        ARCH_X86 <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    Binary() <span style="color:#ff79c6">:</span> type(BIN_TYPE_AUTO), arch(ARCH_NONE), bits(<span style="color:#bd93f9">0</span>), entry(<span style="color:#bd93f9">0</span>) {}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    Section <span style="color:#ff79c6">*</span><span style="color:#50fa7b">get_text_section</span>() {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">for</span>(<span style="color:#ff79c6">auto</span> <span style="color:#ff79c6">&amp;</span><span style="color:#8be9fd;font-style:italic">s</span> : sections) <span style="color:#ff79c6">if</span>(s.name <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;.text&#34;</span>) 
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">&amp;</span>s; 
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#8be9fd;font-style:italic">NULL</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    std<span style="color:#ff79c6">::</span>string filename;
+</span></span><span style="display:flex;"><span>    BinaryType type;
+</span></span><span style="display:flex;"><span>    std<span style="color:#ff79c6">::</span>string type_str;
+</span></span><span style="display:flex;"><span>    BinaryArch arch;
+</span></span><span style="display:flex;"><span>    std<span style="color:#ff79c6">::</span>string arch_str;
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd">unsigned</span> bits;
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd">uint64_t</span> entry;
+</span></span><span style="display:flex;"><span>    std<span style="color:#ff79c6">::</span>vector<span style="color:#ff79c6">&lt;</span>Section<span style="color:#ff79c6">&gt;</span> sections;
+</span></span><span style="display:flex;"><span>    std<span style="color:#ff79c6">::</span>vector<span style="color:#ff79c6">&lt;</span>Symbol<span style="color:#ff79c6">&gt;</span> symbols;
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>It stores:</p>
+<ul>
+<li>Architecture</li>
+<li>Bitness</li>
+<li>Entry point</li>
+<li>Sections</li>
+<li>Symbols</li>
+</ul>
+<p>There’s also a convenience function:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>Section <span style="color:#ff79c6">*</span><span style="color:#50fa7b">get_text_section</span>();
+</span></span></code></pre></div><p>Which simplifies access to executable code.</p>
+<hr>
+<h2 id="loader-entry-points">
+  Loader Entry Points
+  <a class="heading-link" href="#loader-entry-points">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h2>
+<p>Two functions complete the interface:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#8be9fd">int</span> <span style="color:#50fa7b">load_binary</span>(std<span style="color:#ff79c6">::</span>string <span style="color:#ff79c6">&amp;</span>fname, Binary <span style="color:#ff79c6">*</span>bin, Binary<span style="color:#ff79c6">::</span>BinaryType type);
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd">void</span> <span style="color:#50fa7b">unload_binary</span>(Binary <span style="color:#ff79c6">*</span>bin);
+</span></span></code></pre></div><p>These abstract away:</p>
+<ul>
+<li>Opening the file</li>
+<li>Parsing format details</li>
+<li>Extracting sections and symbols</li>
+<li>Cleaning up memory</li>
+</ul>
+<hr>
+<h1 id="extracting-binary-metadata">
+  Extracting binary metadata
+  <a class="heading-link" href="#extracting-binary-metadata">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h1>
+<hr>
+<h1 id="loading-symbols">
+  Loading symbols
+  <a class="heading-link" href="#loading-symbols">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h1>
+<hr>
+<h1 id="loading-sections">
+  Loading sections
+  <a class="heading-link" href="#loading-sections">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h1>
 
       </div>
 
