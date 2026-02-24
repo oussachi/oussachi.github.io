@@ -2,31 +2,31 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>oussachi</title>
-    <link>https://oussachi.github.io/</link>
+    <link>http://localhost:1313/</link>
     <description>Recent content on oussachi</description>
     <generator>Hugo</generator>
     <language>en-us</language>
     <lastBuildDate>Tue, 24 Feb 2026 00:00:00 +0000</lastBuildDate>
-    <atom:link href="https://oussachi.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <atom:link href="http://localhost:1313/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Building a Binary Loader</title>
-      <link>https://oussachi.github.io/posts/building-a-binary-loader/</link>
+      <link>http://localhost:1313/posts/building-a-binary-loader/</link>
       <pubDate>Tue, 24 Feb 2026 00:00:00 +0000</pubDate>
-      <guid>https://oussachi.github.io/posts/building-a-binary-loader/</guid>
+      <guid>http://localhost:1313/posts/building-a-binary-loader/</guid>
       <description>&lt;h1 id=&#34;introduction&#34;&gt;&#xA;  Introduction&#xA;  &lt;a class=&#34;heading-link&#34; href=&#34;#introduction&#34;&gt;&#xA;    &lt;i class=&#34;fa-solid fa-link&#34; aria-hidden=&#34;true&#34; title=&#34;Link to heading&#34;&gt;&lt;/i&gt;&#xA;    &lt;span class=&#34;sr-only&#34;&gt;Link to heading&lt;/span&gt;&#xA;  &lt;/a&gt;&#xA;&lt;/h1&gt;&#xA;&lt;p&gt;Binary loading and analysis are essential in reverse engineering, debugging, and security research. While Linux uses ELF as the standard binary format, manually parsing it is tedious and error-prone.&lt;/p&gt;&#xA;&lt;p&gt;This project implements a &lt;strong&gt;custom binary loader&lt;/strong&gt;, following the book &lt;em&gt;Practical Binary Analysis&lt;/em&gt;, with fixes to the original code to account for &lt;strong&gt;changes in function signatures&lt;/strong&gt;. It uses &lt;strong&gt;libbfd&lt;/strong&gt;, the GNU Binary File Descriptor library, to handle low-level parsing. The loader only loads &lt;strong&gt;function symbols&lt;/strong&gt; and &lt;strong&gt;code/data sections&lt;/strong&gt;, providing a structured and reusable interface.&lt;/p&gt;</description>
     </item>
     <item>
       <title>About</title>
-      <link>https://oussachi.github.io/about/</link>
+      <link>http://localhost:1313/about/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-      <guid>https://oussachi.github.io/about/</guid>
+      <guid>http://localhost:1313/about/</guid>
       <description>&lt;p&gt;I am Dairi Oussama Abderrahmane (also known as oussachi and agrippa), a computer science graduate with a focus on cybersecurity, networks, and low-level exploitation.&lt;/p&gt;&#xA;&lt;p&gt;I received my Engineer’s degree (Ingénieur d’État) and Master’s degree from l&amp;rsquo;École Nationale Supérieure d&amp;rsquo;Informatique (ESI, Algiers), specializing in computer systems.&lt;/p&gt;&#xA;&lt;p&gt;Currently looking for full-time opportunities in networking, cybersecurity, systems programming or software engineering. My ideal role would push me technically and let me approach problems creatively.&lt;/p&gt;</description>
     </item>
     <item>
       <title>Curriculum Vitae</title>
-      <link>https://oussachi.github.io/cv/</link>
+      <link>http://localhost:1313/cv/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-      <guid>https://oussachi.github.io/cv/</guid>
+      <guid>http://localhost:1313/cv/</guid>
       <description>&lt;h1 id=&#34;oussama-abderrahmane-dairi&#34;&gt;&#xA;  Oussama Abderrahmane Dairi&#xA;  &lt;a class=&#34;heading-link&#34; href=&#34;#oussama-abderrahmane-dairi&#34;&gt;&#xA;    &lt;i class=&#34;fa-solid fa-link&#34; aria-hidden=&#34;true&#34; title=&#34;Link to heading&#34;&gt;&lt;/i&gt;&#xA;    &lt;span class=&#34;sr-only&#34;&gt;Link to heading&lt;/span&gt;&#xA;  &lt;/a&gt;&#xA;&lt;/h1&gt;&#xA;&lt;hr&gt;&#xA;&lt;h2 id=&#34;education&#34;&gt;&#xA;  Education&#xA;  &lt;a class=&#34;heading-link&#34; href=&#34;#education&#34;&gt;&#xA;    &lt;i class=&#34;fa-solid fa-link&#34; aria-hidden=&#34;true&#34; title=&#34;Link to heading&#34;&gt;&lt;/i&gt;&#xA;    &lt;span class=&#34;sr-only&#34;&gt;Link to heading&lt;/span&gt;&#xA;  &lt;/a&gt;&#xA;&lt;/h2&gt;&#xA;&lt;p&gt;&lt;strong&gt;École Nationale Supérieure d&amp;rsquo;Informatique (ESI), Algiers&lt;/strong&gt;&lt;br&gt;&#xA;Engineer&amp;rsquo;s Degree &amp;amp; Master&amp;rsquo;s Degree – Computer Systems&lt;br&gt;&#xA;2022 – 2025&lt;/p&gt;&#xA;&lt;p&gt;&lt;strong&gt;École Nationale Supérieure d&amp;rsquo;Informatique (ESI), Sidi Bel Abbes&lt;/strong&gt;&lt;br&gt;&#xA;2020 - 2022&lt;/p&gt;&#xA;&lt;hr&gt;&#xA;&lt;h2 id=&#34;research-experience&#34;&gt;&#xA;  Research Experience&#xA;  &lt;a class=&#34;heading-link&#34; href=&#34;#research-experience&#34;&gt;&#xA;    &lt;i class=&#34;fa-solid fa-link&#34; aria-hidden=&#34;true&#34; title=&#34;Link to heading&#34;&gt;&lt;/i&gt;&#xA;    &lt;span class=&#34;sr-only&#34;&gt;Link to heading&lt;/span&gt;&#xA;  &lt;/a&gt;&#xA;&lt;/h2&gt;&#xA;&lt;p&gt;&lt;strong&gt;Research Intern – L3i, La Rochelle (France)&lt;/strong&gt;&lt;br&gt;&#xA;2024 – 2025&lt;/p&gt;&#xA;&lt;p&gt;Worked on an LLM multi-agent system for automated exploitation of network vulnerabilities.&lt;br&gt;&#xA;Designed and implemented a system capable of planning and executing structured exploitation steps.&lt;/p&gt;</description>
     </item>
   </channel>
