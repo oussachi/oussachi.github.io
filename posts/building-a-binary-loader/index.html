@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <title>
+  Building a Binary Loader · oussachi
+</title>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+
+
+
+
+<meta name="author" content="Dairi Oussama Abderrahmane">
+<meta name="description" content="
+  Introduction
+  
+    
+    Link to heading
+  
+
+Binary loading and analysis are essential in reverse engineering, debugging, and security research. While Linux uses ELF as the standard binary format, manually parsing it is tedious and error-prone.
+This project implements a custom binary loader, following the book Practical Binary Analysis, with fixes to the original code to account for changes in function signatures. It uses libbfd, the GNU Binary File Descriptor library, to handle low-level parsing. The loader only loads function symbols and code/data sections, providing a structured and reusable interface.">
+<meta name="keywords" content="">
+
+
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Building a Binary Loader">
+  <meta name="twitter:description" content="Introduction Link to heading Binary loading and analysis are essential in reverse engineering, debugging, and security research. While Linux uses ELF as the standard binary format, manually parsing it is tedious and error-prone.
+This project implements a custom binary loader, following the book Practical Binary Analysis, with fixes to the original code to account for changes in function signatures. It uses libbfd, the GNU Binary File Descriptor library, to handle low-level parsing. The loader only loads function symbols and code/data sections, providing a structured and reusable interface.">
+
+<meta property="og:url" content="https://oussachi.github.io/posts/building-a-binary-loader/">
+  <meta property="og:site_name" content="oussachi">
+  <meta property="og:title" content="Building a Binary Loader">
+  <meta property="og:description" content="Introduction Link to heading Binary loading and analysis are essential in reverse engineering, debugging, and security research. While Linux uses ELF as the standard binary format, manually parsing it is tedious and error-prone.
+This project implements a custom binary loader, following the book Practical Binary Analysis, with fixes to the original code to account for changes in function signatures. It uses libbfd, the GNU Binary File Descriptor library, to handle low-level parsing. The loader only loads function symbols and code/data sections, providing a structured and reusable interface.">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2026-02-24T00:00:00+00:00">
+    <meta property="article:modified_time" content="2026-02-24T00:00:00+00:00">
+
+
+
+
+<link rel="canonical" href="https://oussachi.github.io/posts/building-a-binary-loader/">
+
+
+<link rel="preload" href="../../fonts/fa-brands-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../../fonts/fa-regular-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../../fonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin>
+
+
+  
+  
+  <link rel="stylesheet" href="../../css/coder.min.4b392a85107b91dbdabc528edf014a6ab1a30cd44cafcd5325c8efe796794fca.css" integrity="sha256-SzkqhRB7kdvavFKO3wFKarGjDNRMr81TJcjv55Z5T8o=" crossorigin="anonymous" media="screen" />
+
+
+
+
+
+
+  
+    
+    
+    <link rel="stylesheet" href="../../css/coder-dark.min.a00e6364bacbc8266ad1cc81230774a1397198f8cfb7bcba29b7d6fcb54ce57f.css" integrity="sha256-oA5jZLrLyCZq0cyBIwd0oTlxmPjPt7y6KbfW/LVM5X8=" crossorigin="anonymous" media="screen" />
+  
+
+
+
+ 
+  
+    
+    <link rel="stylesheet" href="../../css/custom.min.8d2133271be5e1d8ba666eab33ccf38c5a9783d62139e7bb8ae76053c7994984.css" integrity="sha256-jSEzJxvl4di6Zm6rM8zzjFqXg9YhOee7iudgU8eZSYQ=" crossorigin="anonymous" media="screen" />
+  
+
+
+
+
+
+<link rel="icon" type="image/svg+xml" href="../../images/favicon.svg" sizes="any">
+<link rel="icon" type="image/png" href="../../images/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="../../images/favicon-16x16.png" sizes="16x16">
+
+<link rel="apple-touch-icon" href="../../images/apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../../images/apple-touch-icon.png">
+
+<link rel="manifest" href="../../site.webmanifest">
+<link rel="mask-icon" href="../../images/safari-pinned-tab.svg" color="#5bbad5">
+
+
+
+
+
+
+
+
+
+</head>
+
+
+
+
+
+
+<body class="preload-transitions colorscheme-dark">
+  
+<div class="float-container">
+    <a id="dark-mode-toggle" class="colorscheme-toggle">
+        <i class="fa-solid fa-adjust fa-fw" aria-hidden="true"></i>
+    </a>
+</div>
+
+
+  <main class="wrapper">
+    <nav class="navigation">
+  <section class="container">
+    
+    <a class="navigation-title" href="https://oussachi.github.io/">
+      oussachi
+    </a>
+    
+    
+      <input type="checkbox" id="menu-toggle" />
+      <label class="menu-button float-right" for="menu-toggle">
+        <i class="fa-solid fa-bars fa-fw" aria-hidden="true"></i>
+      </label>
+      <ul class="navigation-list">
+        
+          
+            <li class="navigation-item">
+              <a class="navigation-link " href="../../posts/">Blog</a>
+            </li>
+          
+            <li class="navigation-item">
+              <a class="navigation-link " href="../../projects/">Projects</a>
+            </li>
+          
+            <li class="navigation-item">
+              <a class="navigation-link " href="../../about/">About</a>
+            </li>
+          
+            <li class="navigation-item">
+              <a class="navigation-link " href="../../cv/">CV</a>
+            </li>
+          
+        
+        
+      </ul>
+    
+  </section>
+</nav>
+
+
+    <div class="content">
+      
+  <section class="container post">
+    <article>
+      <header>
+        <div class="post-title">
+          <h1 class="title">
+            <a class="title-link" href="https://oussachi.github.io/posts/building-a-binary-loader/">
+              Building a Binary Loader
+            </a>
+          </h1>
+        </div>
+        <div class="post-meta">
+          <div class="date">
+            <span class="posted-on">
+              <i class="fa-solid fa-calendar" aria-hidden="true"></i>
+              <time datetime="2026-02-24T00:00:00Z">
+                February 24, 2026
+              </time>
+            </span>
+            <span class="reading-time">
+              <i class="fa-solid fa-clock" aria-hidden="true"></i>
+              12-minute read
+            </span>
+          </div>
+          
+          
+          
+        </div>
+      </header>
+
+      <div class="post-content">
+        
+        <h1 id="introduction">
+  Introduction
+  <a class="heading-link" href="#introduction">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h1>
+<p>Binary loading and analysis are essential in reverse engineering, debugging, and security research. While Linux uses ELF as the standard binary format, manually parsing it is tedious and error-prone.</p>
+<p>This project implements a <strong>custom binary loader</strong>, following the book <em>Practical Binary Analysis</em>, with fixes to the original code to account for <strong>changes in function signatures</strong>. It uses <strong>libbfd</strong>, the GNU Binary File Descriptor library, to handle low-level parsing. The loader only loads <strong>function symbols</strong> and <strong>code/data sections</strong>, providing a structured and reusable interface.</p>
+<p>The complete code for this project is available in the <strong><a href="#" >https://github.com/oussachi/Binary-Loader</a></strong> GitHub repository.</p>
+<hr>
+<h1 id="a-primer-on-the-elf-format">
+  A Primer on the ELF Format
+  <a class="heading-link" href="#a-primer-on-the-elf-format">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h1>
+<p>On Linux, the <strong>Executable and Linkable Format (ELF)</strong> is the standard for binaries, shared libraries, and object files. Understanding ELF is essential when building a loader.</p>
+<p>An ELF file has four main components:</p>
+<ol>
+<li><strong>ELF Header</strong> – at the very beginning, describes file type, architecture, entry point (<code>e_entry</code>), and offsets to tables.</li>
+<li><strong>Program Header Table</strong> – describes segments (memory chunks the OS loads), used at runtime.</li>
+<li><strong>Sections</strong> – logical divisions like <code>.text</code>, <code>.data</code>, <code>.bss</code>, <code>.rodata</code>, used mainly at link time.</li>
+<li><strong>Section Header Table</strong> – describes all sections.</li>
+</ol>
+<h2 id="key-sections">
+  Key Sections
+  <a class="heading-link" href="#key-sections">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h2>
+<ul>
+<li><strong><code>.text</code></strong> – main executable code, including <code>_start</code>.</li>
+<li><strong><code>.data</code> / <code>.bss</code> / <code>.rodata</code></strong> – program data: initialized, uninitialized, and read-only constants.</li>
+<li><strong><code>.init</code> / <code>.fini</code></strong> – code run before and after <code>main</code>.</li>
+<li><strong><code>.init_array</code> / <code>.fini_array</code></strong> – arrays of constructor/destructor function pointers.</li>
+<li><strong><code>.plt</code> / <code>.got</code> / <code>.got.plt</code></strong> – support dynamic linking with lazy symbol resolution.</li>
+<li><strong><code>.rel.*</code> / <code>.rela.*</code></strong> – relocation entries for addresses that need adjustment.</li>
+<li><strong><code>.dynamic</code></strong> – tells the dynamic linker which libraries, tables, and init/fini functions to use.</li>
+</ul>
+<h2 id="segments-vs-sections">
+  Segments vs Sections
+  <a class="heading-link" href="#segments-vs-sections">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h2>
+<ul>
+<li><strong>Sections</strong> = for linkers &amp; static analysis</li>
+<li><strong>Segments</strong> = for runtime loading by the OS</li>
+</ul>
+<p>A segment may contain multiple sections. The loader maps segments into memory and then jumps to <code>e_entry</code>.</p>
+<hr>
+<h1 id="a-primer-on-libbfd">
+  A Primer on libbfd
+  <a class="heading-link" href="#a-primer-on-libbfd">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h1>
+<p><strong>libbfd</strong> (Binary File Descriptor library) is part of GNU Binutils and provides a uniform interface to read, inspect, and manipulate binary files across architectures and formats (ELF, PE, Mach-O, etc.).</p>
+<p>Key points:</p>
+<ul>
+<li>
+<p>Abstracts away file format details — you don’t need to parse ELF headers manually.</p>
+</li>
+<li>
+<p>Provides functions to access <strong>sections, symbols, relocations, and segments</strong>.</p>
+</li>
+<li>
+<p>Central objects:</p>
+<ul>
+<li><code>bfd</code> → represents an open binary file.</li>
+<li><code>asection</code> → represents a section in the binary.</li>
+<li><code>symbol_table</code> → contains symbols (functions, globals).</li>
+</ul>
+</li>
+<li>
+<p>Typical workflow:</p>
+<ol>
+<li>Open a file with <code>bfd_openr</code>.</li>
+<li>Check format using <code>bfd_check_format</code>.</li>
+<li>Read sections with <code>bfd_get_section_by_name</code> or iterate over all.</li>
+<li>Read symbols with <code>bfd_canonicalize_symtab</code>.</li>
+</ol>
+</li>
+</ul>
+<p>Essentially, libbfd acts as a <strong>cross-format parser</strong>, letting you focus on loader logic rather than binary quirks.</p>
+<hr>
+<h1 id="designing-the-loader-interface">
+  Designing the Loader Interface
+  <a class="heading-link" href="#designing-the-loader-interface">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h1>
+<p>Before implementing the loader, we define a clean API.</p>
+<p>This loader is <strong>not</strong> a dynamic loader like the OS provides. We’re building a loader for <strong>static analysis tools</strong>, something that parses binaries and exposes their structure in a simple, reusable way, and thus two important design decisions are :</p>
+<ol>
+<li><strong>Hide libbfd completely.</strong>
+The interface must not expose any <code>bfd</code> types or functions.</li>
+<li><strong>Keep it minimal.</strong>
+Only expose what analysis tools actually need: sections, symbols, entry point, architecture, etc..</li>
+</ol>
+<p>The API revolves around three classes: <code>Binary</code>, <code>Section</code>, and <code>Symbol</code>.</p>
+<h2 id="core-abstractions">
+  Core Abstractions
+  <a class="heading-link" href="#core-abstractions">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h2>
+<h3 id="symbol">
+  <code>Symbol</code>
+  <a class="heading-link" href="#symbol">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h3>
+<p>Represents a function or global symbol.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">Symbol</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">public</span><span style="color:#ff79c6">:</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">enum</span> <span style="color:#50fa7b">SymbolType</span> {
+</span></span><span style="display:flex;"><span>        SYM_TYPE_UKN <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>,
+</span></span><span style="display:flex;"><span>        SYM_TYPE_FUNC <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>    Symbol() <span style="color:#ff79c6">:</span> type(SYM_TYPE_UKN), name(), addr(<span style="color:#bd93f9">0</span>) {}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    SymbolType type;
+</span></span><span style="display:flex;"><span>    std<span style="color:#ff79c6">::</span>string name;
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd">uint64_t</span> addr; <span style="color:#6272a4">/*start address*/</span>
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>Binaries may contain many symbol types, but the loader intentionally simplifies this.</p>
+<p>Only <strong>function symbols</strong> are exposed, each Symbol contains a <code>type</code> (<code>SYM_TYPE_FUNC</code>), <code>name</code> and an <code>addr</code> (function start address).</p>
+<hr>
+<h3 id="section">
+  <code>Section</code>
+  <a class="heading-link" href="#section">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h3>
+<p>Represents a binary section.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">Section</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">public</span><span style="color:#ff79c6">:</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">enum</span> <span style="color:#50fa7b">SectionType</span> {
+</span></span><span style="display:flex;"><span>        SEC_TYPE_NONE <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>,
+</span></span><span style="display:flex;"><span>        SEC_TYPE_CODE <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">1</span>,
+</span></span><span style="display:flex;"><span>        SEC_TYPE_DATA <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">2</span>
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    Section() <span style="color:#ff79c6">:</span> binary(<span style="color:#8be9fd;font-style:italic">NULL</span>), type(SEC_TYPE_NONE), vma(<span style="color:#bd93f9">0</span>), size(<span style="color:#bd93f9">0</span>), bytes(<span style="color:#8be9fd;font-style:italic">NULL</span>) {}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd">bool</span> <span style="color:#50fa7b">contains</span>(<span style="color:#8be9fd">uint64_t</span> addr) {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> (addr <span style="color:#ff79c6">&gt;=</span> vma) <span style="color:#ff79c6">&amp;&amp;</span> (addr<span style="color:#ff79c6">-</span> vma <span style="color:#ff79c6">&lt;</span> size);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    Binary <span style="color:#ff79c6">*</span>binary;
+</span></span><span style="display:flex;"><span>    std<span style="color:#ff79c6">::</span>string name;
+</span></span><span style="display:flex;"><span>    SectionType type;
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd">uint64_t</span> vma; <span style="color:#6272a4">/*start address*/</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd">uint64_t</span> size;
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd">uint8_t</span> <span style="color:#ff79c6">*</span>bytes;
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>It stores the following fields : <code>name</code>, <code>type</code> (<code>SEC_TYPE_CODE</code> or <code>SEC_TYPE_DATA</code>), <code>vma</code> (starting virtual address), <code>size</code>, <code>bytes</code> (raw contents) and a pointer back to its parent Binary.</p>
+<p>A key helper method:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#8be9fd">bool</span> <span style="color:#50fa7b">contains</span>(<span style="color:#8be9fd">uint64_t</span> addr);
+</span></span></code></pre></div><p>This checks whether an address falls inside the section, which proves useful during disassembly and analysis when resolving instruction addresses.</p>
+<hr>
+<h3 id="binary">
+  <code>Binary</code>
+  <a class="heading-link" href="#binary">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h3>
+<p>This is the main container.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#ff79c6">class</span> <span style="color:#50fa7b">Binary</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">public</span><span style="color:#ff79c6">:</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">enum</span> <span style="color:#50fa7b">BinaryType</span> {
+</span></span><span style="display:flex;"><span>        BIN_TYPE_AUTO <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>,
+</span></span><span style="display:flex;"><span>        BIN_TYPE_ELF <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">1</span>,
+</span></span><span style="display:flex;"><span>        BIN_TYPE_PE <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">2</span>
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">enum</span> <span style="color:#50fa7b">BinaryArch</span> {
+</span></span><span style="display:flex;"><span>        ARCH_NONE <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>,
+</span></span><span style="display:flex;"><span>        ARCH_X86 <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    Binary() <span style="color:#ff79c6">:</span> type(BIN_TYPE_AUTO), arch(ARCH_NONE), bits(<span style="color:#bd93f9">0</span>), entry(<span style="color:#bd93f9">0</span>) {}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    Section <span style="color:#ff79c6">*</span><span style="color:#50fa7b">get_text_section</span>() {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">for</span>(<span style="color:#ff79c6">auto</span> <span style="color:#ff79c6">&amp;</span><span style="color:#8be9fd;font-style:italic">s</span> : sections) <span style="color:#ff79c6">if</span>(s.name <span style="color:#ff79c6">==</span> <span style="color:#f1fa8c">&#34;.text&#34;</span>) 
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">&amp;</span>s; 
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#8be9fd;font-style:italic">NULL</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    std<span style="color:#ff79c6">::</span>string filename;
+</span></span><span style="display:flex;"><span>    BinaryType type;
+</span></span><span style="display:flex;"><span>    std<span style="color:#ff79c6">::</span>string type_str;
+</span></span><span style="display:flex;"><span>    BinaryArch arch;
+</span></span><span style="display:flex;"><span>    std<span style="color:#ff79c6">::</span>string arch_str;
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd">unsigned</span> bits;
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd">uint64_t</span> entry;
+</span></span><span style="display:flex;"><span>    std<span style="color:#ff79c6">::</span>vector<span style="color:#ff79c6">&lt;</span>Section<span style="color:#ff79c6">&gt;</span> sections;
+</span></span><span style="display:flex;"><span>    std<span style="color:#ff79c6">::</span>vector<span style="color:#ff79c6">&lt;</span>Symbol<span style="color:#ff79c6">&gt;</span> symbols;
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>It stores:</p>
+<ul>
+<li>Architecture</li>
+<li>Bitness</li>
+<li>Entry point</li>
+<li>Sections</li>
+<li>Symbols</li>
+</ul>
+<p>There’s also a convenience function:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>Section <span style="color:#ff79c6">*</span><span style="color:#50fa7b">get_text_section</span>();
+</span></span></code></pre></div><p>Which simplifies access to executable code.</p>
+<hr>
+<h2 id="loader-entry-points">
+  Loader Entry Points
+  <a class="heading-link" href="#loader-entry-points">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h2>
+<p>Two functions complete the interface:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#8be9fd">int</span> <span style="color:#50fa7b">load_binary</span>(std<span style="color:#ff79c6">::</span>string <span style="color:#ff79c6">&amp;</span>fname, Binary <span style="color:#ff79c6">*</span>bin, Binary<span style="color:#ff79c6">::</span>BinaryType type);
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd">void</span> <span style="color:#50fa7b">unload_binary</span>(Binary <span style="color:#ff79c6">*</span>bin);
+</span></span></code></pre></div><p>These abstract away:</p>
+<ul>
+<li>Opening the file</li>
+<li>Parsing format details</li>
+<li>Extracting sections and symbols</li>
+<li>Cleaning up memory</li>
+</ul>
+<p>This loader interface is declared in <code>loader.h</code>, while <code>load_binary()</code> and <code>unload_binary()</code> are implemented in <code>loader.cc</code>.</p>
+<hr>
+<h1 id="writing-the-binary-loader">
+  Writing the binary loader
+  <a class="heading-link" href="#writing-the-binary-loader">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h1>
+<p>With the interface out of the way, we start implementing the <code>load_binary()</code> and <code>unload_binary()</code> functions, the two entry point functions exposed by the loader interface.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#8be9fd">int</span> <span style="color:#50fa7b">load_binary</span>(std<span style="color:#ff79c6">::</span>string <span style="color:#ff79c6">&amp;</span>fname, Binary <span style="color:#ff79c6">*</span>bin, Binary<span style="color:#ff79c6">::</span>BinaryType type) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> load_binary_bfd(fname, bin, type);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd">void</span> <span style="color:#50fa7b">unload_binary</span>(Binary <span style="color:#ff79c6">*</span>bin) {
+</span></span><span style="display:flex;"><span>    size_t i;
+</span></span><span style="display:flex;"><span>    Section <span style="color:#ff79c6">*</span>sec;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">for</span>(i <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>; i <span style="color:#ff79c6">&lt;</span> bin<span style="color:#ff79c6">-&gt;</span>sections.size(); i<span style="color:#ff79c6">++</span>) {
+</span></span><span style="display:flex;"><span>        sec <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">&amp;</span>bin<span style="color:#ff79c6">-&gt;</span>sections[i];
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span>(sec<span style="color:#ff79c6">-&gt;</span>bytes) {
+</span></span><span style="display:flex;"><span>            free(sec<span style="color:#ff79c6">-&gt;</span>bytes);
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><code>load_binary()</code> parses a binary file and fills a <code>Binary</code> object, but it delegates the actual work to <code>load_binary_bfd()</code>. Conversely, <code>unload_binary()</code> simply frees any dynamically allocated memory, which in practice is just the bytes arrays of each <code>Section</code>. Loading is more complex, so it’s handled separately with libbfd.</p>
+<p>Before parsing and loading the binary, we have to open it and so we implement <code>open_bfd()</code></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#6272a4">// Used to open a binary
+</span></span></span><span style="display:flex;"><span><span style="color:#ff79c6">static</span> bfd<span style="color:#ff79c6">*</span> <span style="color:#50fa7b">open_bfd</span>(std<span style="color:#ff79c6">::</span>string <span style="color:#ff79c6">&amp;</span>fname) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">static</span> <span style="color:#8be9fd">int</span> bfd_inited <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>;
+</span></span><span style="display:flex;"><span>    bfd <span style="color:#ff79c6">*</span>bfd_h;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span>(<span style="color:#ff79c6">!</span>bfd_inited) {
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// A function used to initialize bfd&#39;s &#34;magical&#34; internal data structure
+</span></span></span><span style="display:flex;"><span>        <span style="color:#6272a4">// This initialization is tracked with the variable bfd_inited
+</span></span></span><span style="display:flex;"><span>        bfd_init();
+</span></span><span style="display:flex;"><span>        bfd_inited <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">1</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">/*A function used to open the binary file by name, returns a pointer to the file handle of type
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">    bfd which is libbfd&#39;s root data structure */</span>
+</span></span><span style="display:flex;"><span>    bfd_h <span style="color:#ff79c6">=</span> bfd_openr(fname.c_str(), <span style="color:#8be9fd;font-style:italic">NULL</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span>(<span style="color:#ff79c6">!</span>bfd_h) {
+</span></span><span style="display:flex;"><span>        fprintf(stderr, <span style="color:#f1fa8c">&#34;failed to open binary &#39;%s&#39; (%s)</span><span style="color:#f1fa8c">\n</span><span style="color:#f1fa8c">&#34;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">/*bfd_get_error() gets the most recent error and returns a bfd_error_type object, which is 
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">        translated to a string by bfd_errmsg()*/</span>
+</span></span><span style="display:flex;"><span>        fname.c_str(), bfd_errmsg(bfd_get_error()));
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#8be9fd;font-style:italic">NULL</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">/*bfd_check_format() checks the format of the given file -object, core or archive- 
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">    a bfd_object is either a binary, relocatable object or shared library*/</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span>(<span style="color:#ff79c6">!</span>bfd_check_format(bfd_h, bfd_object)) {
+</span></span><span style="display:flex;"><span>        fprintf(stderr, <span style="color:#f1fa8c">&#34;file &#39;%s&#39; does not look like an executable (%s)</span><span style="color:#f1fa8c">\n</span><span style="color:#f1fa8c">&#34;</span>,
+</span></span><span style="display:flex;"><span>        fname.c_str(), bfd_errmsg(bfd_get_error()));
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#8be9fd;font-style:italic">NULL</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">/* Some versions of bfd_check_format pessimistically set a wrong_format
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">    * error before detecting the format and then neglect to unset it once
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">    * the format has been detected. We unset it manually to prevent problems.
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">    */</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    bfd_set_error(bfd_error_no_error);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">/*The flavour in this function is simply the type of the binary -ELF,PE...-
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">    if the flavour is unknown it exists with an error message*/</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span>(bfd_get_flavour(bfd_h) <span style="color:#ff79c6">==</span> bfd_target_unknown_flavour) {
+</span></span><span style="display:flex;"><span>        fprintf(stderr, <span style="color:#f1fa8c">&#34;unrecognized format for binary &#39;%s&#39; (%s)</span><span style="color:#f1fa8c">\n</span><span style="color:#f1fa8c">&#34;</span>,
+</span></span><span style="display:flex;"><span>        fname.c_str(), bfd_errmsg(bfd_get_error()));
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#8be9fd;font-style:italic">NULL</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> bfd_h;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>We won’t go too much into the details of the functions and code, but essentially, <code>open_bfd</code> uses libbfd to open a binary and return a handle for further processing. It initializes libbfd (once per program), opens the file with <code>bfd_openr</code>, and checks for errors using <code>bfd_get_error</code> and <code>bfd_errmsg</code>. The function then verifies that the file is a valid object (<code>bfd_check_format</code>) and that its binary “flavor” is recognized (ELF or PE) using <code>bfd_get_flavour</code>. If all checks pass, it returns a valid <code>bfd</code> handle ready for extracting metadata, symbols, and sections.</p>
+<h1 id="extracting-binary-metadata">
+  Extracting binary metadata
+  <a class="heading-link" href="#extracting-binary-metadata">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h1>
+<p>Now with the binary open, it’s time to start parsing and loading it. The implementation of the <code>load_binary_bfd()</code> function follows, which is the function that handles all the actual parsing and loading work on behalf of the <code>load_binary()</code> function.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#ff79c6">static</span> <span style="color:#8be9fd">int</span> <span style="color:#50fa7b">load_binary_bfd</span>(std<span style="color:#ff79c6">::</span>string <span style="color:#ff79c6">&amp;</span>fname, Binary <span style="color:#ff79c6">*</span>bin, Binary<span style="color:#ff79c6">::</span>BinaryType type) {
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd">int</span> ret;
+</span></span><span style="display:flex;"><span>    bfd <span style="color:#ff79c6">*</span>bfd_h;
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">const</span> bfd_arch_info_type <span style="color:#ff79c6">*</span>bfd_info;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    bfd_h <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">NULL</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">/*Binary is opened using the previously defined open_bfd function*/</span>
+</span></span><span style="display:flex;"><span>    bfd_h <span style="color:#ff79c6">=</span> open_bfd(fname);
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span>(<span style="color:#ff79c6">!</span>bfd_h) {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">goto</span> fail;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">/*Some of the binary&#39;s properties are set*/</span>
+</span></span><span style="display:flex;"><span>    bin<span style="color:#ff79c6">-&gt;</span>filename <span style="color:#ff79c6">=</span> std<span style="color:#ff79c6">::</span>string(fname);
+</span></span><span style="display:flex;"><span>    bin<span style="color:#ff79c6">-&gt;</span>entry <span style="color:#ff79c6">=</span> bfd_get_start_address(bfd_h);
+</span></span><span style="display:flex;"><span>    bin<span style="color:#ff79c6">-&gt;</span>type_str <span style="color:#ff79c6">=</span> std<span style="color:#ff79c6">::</span>string(bfd_h<span style="color:#ff79c6">-&gt;</span>xvec<span style="color:#ff79c6">-&gt;</span>name);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">/*The xvec field gives us access to the bfd_target strcuture which includes
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">    data about the type of the binary*/</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">switch</span>(bfd_h<span style="color:#ff79c6">-&gt;</span>xvec<span style="color:#ff79c6">-&gt;</span>flavour){
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">case</span> <span style="color:#8be9fd;font-style:italic">bfd_target_elf_flavour</span>:
+</span></span><span style="display:flex;"><span>            bin<span style="color:#ff79c6">-&gt;</span>type <span style="color:#ff79c6">=</span> Binary<span style="color:#ff79c6">::</span>BIN_TYPE_ELF;
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">break</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">case</span> <span style="color:#8be9fd;font-style:italic">bfd_target_coff_flavour</span>:
+</span></span><span style="display:flex;"><span>            bin<span style="color:#ff79c6">-&gt;</span>type <span style="color:#ff79c6">=</span> Binary<span style="color:#ff79c6">::</span>BIN_TYPE_PE;
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">break</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">case</span> <span style="color:#8be9fd;font-style:italic">bfd_target_unknown_flavour</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">default</span><span style="color:#ff79c6">:</span>
+</span></span><span style="display:flex;"><span>            fprintf(stderr, <span style="color:#f1fa8c">&#34;unsupported binary type (%s)</span><span style="color:#f1fa8c">\n</span><span style="color:#f1fa8c">&#34;</span>, bfd_h<span style="color:#ff79c6">-&gt;</span>xvec<span style="color:#ff79c6">-&gt;</span>name);
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">goto</span> fail;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    bfd_info <span style="color:#ff79c6">=</span> bfd_get_arch_info(bfd_h);
+</span></span><span style="display:flex;"><span>    bin<span style="color:#ff79c6">-&gt;</span>arch_str <span style="color:#ff79c6">=</span> std<span style="color:#ff79c6">::</span>string(bfd_info<span style="color:#ff79c6">-&gt;</span>printable_name);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">/*We here use the structure returned by bfd_get_arch_info to get data about
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">    the architecture and then decide the binary&#39;s arch*/</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">switch</span>(bfd_info<span style="color:#ff79c6">-&gt;</span>mach){
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">case</span> <span style="color:#8be9fd;font-style:italic">bfd_mach_i386_i386</span>:
+</span></span><span style="display:flex;"><span>            bin<span style="color:#ff79c6">-&gt;</span>arch <span style="color:#ff79c6">=</span> Binary<span style="color:#ff79c6">::</span>ARCH_X86;
+</span></span><span style="display:flex;"><span>            bin<span style="color:#ff79c6">-&gt;</span>bits <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">32</span>;
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">break</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">case</span> <span style="color:#8be9fd;font-style:italic">bfd_mach_x86_64</span>:
+</span></span><span style="display:flex;"><span>            bin<span style="color:#ff79c6">-&gt;</span>arch <span style="color:#ff79c6">=</span> Binary<span style="color:#ff79c6">::</span>ARCH_X86;
+</span></span><span style="display:flex;"><span>            bin<span style="color:#ff79c6">-&gt;</span>bits <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">64</span>;
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">break</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">default</span><span style="color:#ff79c6">:</span>
+</span></span><span style="display:flex;"><span>            fprintf(stderr, <span style="color:#f1fa8c">&#34;unsupported architecture (%s)</span><span style="color:#f1fa8c">\n</span><span style="color:#f1fa8c">&#34;</span>,
+</span></span><span style="display:flex;"><span>                bfd_info<span style="color:#ff79c6">-&gt;</span>printable_name); 
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">goto</span> fail;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">/* Symbol handling is best effort only as they may not be present*/</span>
+</span></span><span style="display:flex;"><span>    load_symbols_bfd(bfd_h, bin);
+</span></span><span style="display:flex;"><span>    load_dynsym_bfd(bfd_h, bin);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span>(load_sections_bfd(bfd_h, bin) <span style="color:#ff79c6">&lt;</span> <span style="color:#bd93f9">0</span>) <span style="color:#ff79c6">goto</span> fail;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    ret <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">goto</span> cleanup;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">fail</span>:
+</span></span><span style="display:flex;"><span>        ret <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">-</span><span style="color:#bd93f9">1</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">cleanup</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span>(bfd_h) bfd_close(bfd_h);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> ret;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><code>load_binary_bfd()</code> starts by opening the binary with <code>open_bfd()</code> and obtaining a <code>bfd</code> handle. It then fills the <code>Binary</code> object with basic information: filename, entry point (<code>bfd_get_start_address</code>), binary type (ELF or PE via <code>bfd_h-&gt;xvec-&gt;flavour</code>), and architecture (using <code>bfd_get_arch_info</code> and the <code>mach</code> field to distinguish 32- vs 64-bit x86). After setting these properties, the loader delegates symbol and section extraction to specialized functions <code>load_symbols_bfd()</code>, <code>load_dynsym_bfd()</code>, and <code>load_sections_bfd()</code>, which we&rsquo;ll implement in  a bit. Once all data is copied into the <code>Binary</code> object, the <code>bfd</code> handle is closed with <code>bfd_close</code>, even if an error occurs during loading.</p>
+<hr>
+<h1 id="loading-symbols">
+  Loading symbols
+  <a class="heading-link" href="#loading-symbols">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h1>
+<p>Now we&rsquo;ll discuss loading both static and dynamic symbols, the following function <code>load_symbols_bfd()</code> loads the static symbol table</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#6272a4">/*Function used to load the symbols, a symbol is represented by the asymbol struct
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">a symbol table is a asymbol** which is an array of pointers to symbols
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">This function populates the binary&#39;s array of pointers to symbols*/</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">static</span> <span style="color:#8be9fd">int</span> <span style="color:#50fa7b">load_symbols_bfd</span>(bfd <span style="color:#ff79c6">*</span>bfd_h, Binary <span style="color:#ff79c6">*</span>bin) {
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd">int</span> ret;
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd">long</span> n, nsyms, i;
+</span></span><span style="display:flex;"><span>    asymbol <span style="color:#ff79c6">**</span>bfd_symtab;
+</span></span><span style="display:flex;"><span>    Symbol <span style="color:#ff79c6">*</span>sym;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    bfd_symtab <span style="color:#ff79c6">=</span> <span style="color:#8be9fd;font-style:italic">NULL</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">/*This function returns the necessary number of bytes to store all the symbol pointers
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">    a neg value is an error, and 0 means the binary is stripped -no symbols-*/</span>
+</span></span><span style="display:flex;"><span>    n <span style="color:#ff79c6">=</span> bfd_get_symtab_upper_bound(bfd_h);
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span>(n <span style="color:#ff79c6">&lt;</span> <span style="color:#bd93f9">0</span>) {
+</span></span><span style="display:flex;"><span>        fprintf(stderr, <span style="color:#f1fa8c">&#34;failed to read symtab (%s)</span><span style="color:#f1fa8c">\n</span><span style="color:#f1fa8c">&#34;</span>,
+</span></span><span style="display:flex;"><span>        bfd_errmsg(bfd_get_error()));
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">goto</span> fail;
+</span></span><span style="display:flex;"><span>    } <span style="color:#ff79c6">else</span> <span style="color:#ff79c6">if</span>(n) {
+</span></span><span style="display:flex;"><span>        bfd_symtab <span style="color:#ff79c6">=</span> (asymbol<span style="color:#ff79c6">**</span>)malloc(n);
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span>(<span style="color:#ff79c6">!</span>bfd_symtab) {
+</span></span><span style="display:flex;"><span>            fprintf(stderr, <span style="color:#f1fa8c">&#34;out of memory</span><span style="color:#f1fa8c">\n</span><span style="color:#f1fa8c">&#34;</span>);
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">goto</span> fail;
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">/*This function is the most important here as it populates the array bfd_symtab
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">        with the bfd&#39;s symbols and returns how many symbols it populated*/</span>
+</span></span><span style="display:flex;"><span>        nsyms <span style="color:#ff79c6">=</span> bfd_canonicalize_symtab(bfd_h, bfd_symtab);
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span>(nsyms <span style="color:#ff79c6">&lt;</span> <span style="color:#bd93f9">0</span>) {
+</span></span><span style="display:flex;"><span>            fprintf(stderr, <span style="color:#f1fa8c">&#34;failed to read symtab (%s)</span><span style="color:#f1fa8c">\n</span><span style="color:#f1fa8c">&#34;</span>,
+</span></span><span style="display:flex;"><span>            bfd_errmsg(bfd_get_error()));
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">goto</span> fail;
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">/*Using the populated array bfd_symtab, we now create Symbol entries in our binary
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">        and fill it with the data of the array&#39;s entries*/</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">for</span>(i <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>; i <span style="color:#ff79c6">&lt;</span> nsyms; i<span style="color:#ff79c6">++</span>) {
+</span></span><span style="display:flex;"><span>            <span style="color:#6272a4">/*As we are only interested in function symbols here, we only check if the function flag is set*/</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">if</span>(bfd_symtab[i]<span style="color:#ff79c6">-&gt;</span>flags <span style="color:#ff79c6">&amp;</span> BSF_FUNCTION) {
+</span></span><span style="display:flex;"><span>                bin<span style="color:#ff79c6">-&gt;</span>symbols.push_back(Symbol());
+</span></span><span style="display:flex;"><span>                sym <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">&amp;</span>bin<span style="color:#ff79c6">-&gt;</span>symbols.back();
+</span></span><span style="display:flex;"><span>                sym<span style="color:#ff79c6">-&gt;</span>type <span style="color:#ff79c6">=</span> Symbol<span style="color:#ff79c6">::</span>SYM_TYPE_FUNC;
+</span></span><span style="display:flex;"><span>                sym<span style="color:#ff79c6">-&gt;</span>name <span style="color:#ff79c6">=</span> std<span style="color:#ff79c6">::</span>string(bfd_symtab[i]<span style="color:#ff79c6">-&gt;</span>name);
+</span></span><span style="display:flex;"><span>                sym<span style="color:#ff79c6">-&gt;</span>addr <span style="color:#ff79c6">=</span> bfd_asymbol_value(bfd_symtab[i]);
+</span></span><span style="display:flex;"><span>            }
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    ret <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">0</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">goto</span> cleanup;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">fail</span>:
+</span></span><span style="display:flex;"><span>        ret <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">-</span><span style="color:#bd93f9">1</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">cleanup</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span>(bfd_symtab) free(bfd_symtab);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> ret;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>In libbfd, symbols are stored as <code>asymbol</code> pointers, and a symbol table is an array of these pointers. <code>load_symbols_bfd()</code> allocates space for the table using <code>bfd_get_symtab_upper_bound()</code> and populates it with <code>bfd_canonicalize_symtab()</code>. The loader then iterates over all symbols, keeping only function symbols (<code>BSF_FUNCTION</code>), and copies their names and addresses into the <code>Binary</code> object’s <code>Symbol</code> vector. Once done, the temporary libbfd symbol table is freed. The dynamic symbol table is loaded in a nearly identical way.</p>
+<p>As for loading the dynamic symbols table, we have the function <code>load_dynsym_bfd()</code> which is identical to the static function with minor differences in function, I prefer not putting it here to avoid redundance but the complete code is available in the GitHub repo.</p>
+<hr>
+<h1 id="loading-sections">
+  Loading sections
+  <a class="heading-link" href="#loading-sections">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h1>
+<p>After loading the symbols, all that remains is loading the binary’s sections, the following function <code>load_sections_bfd()</code> does that</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#6272a4">/*Function used to load sections, sections are represented by the struct asection and are
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">included in a linked list*/</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">static</span> <span style="color:#8be9fd">int</span> <span style="color:#50fa7b">load_sections_bfd</span>(bfd <span style="color:#ff79c6">*</span>bfd_h, Binary <span style="color:#ff79c6">*</span>bin) {
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd">int</span> bfd_flags;
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd">uint64_t</span> vma, size;
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">const</span> <span style="color:#8be9fd">char</span> <span style="color:#ff79c6">*</span>secname;
+</span></span><span style="display:flex;"><span>    asection<span style="color:#ff79c6">*</span> bfd_sec;
+</span></span><span style="display:flex;"><span>    Section <span style="color:#ff79c6">*</span>sec;
+</span></span><span style="display:flex;"><span>    Section<span style="color:#ff79c6">::</span>SectionType sectype;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">/*We iterate over all sections in the asection linked list starting with the first one
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">    stored in bfd_h-&gt;sections*/</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">/*bfd_get_section_flags() has been deleted and thus is replaced with bfd_section_flags()*/</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">for</span>(bfd_sec <span style="color:#ff79c6">=</span> bfd_h<span style="color:#ff79c6">-&gt;</span>sections; bfd_sec; bfd_sec <span style="color:#ff79c6">=</span> bfd_sec<span style="color:#ff79c6">-&gt;</span>next) {
+</span></span><span style="display:flex;"><span>        bfd_flags <span style="color:#ff79c6">=</span> bfd_section_flags(bfd_sec); <span style="color:#6272a4">/*get all section flags*/</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">/*get section type*/</span>
+</span></span><span style="display:flex;"><span>        sectype <span style="color:#ff79c6">=</span> Section<span style="color:#ff79c6">::</span>SEC_TYPE_NONE;
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span>(bfd_flags <span style="color:#ff79c6">&amp;</span> SEC_CODE) {
+</span></span><span style="display:flex;"><span>            sectype <span style="color:#ff79c6">=</span> Section<span style="color:#ff79c6">::</span>SEC_TYPE_CODE;
+</span></span><span style="display:flex;"><span>        } <span style="color:#ff79c6">else</span> <span style="color:#ff79c6">if</span>(bfd_flags <span style="color:#ff79c6">&amp;</span> SEC_DATA) {
+</span></span><span style="display:flex;"><span>            sectype <span style="color:#ff79c6">=</span> Section<span style="color:#ff79c6">::</span>SEC_TYPE_DATA;
+</span></span><span style="display:flex;"><span>        } <span style="color:#ff79c6">else</span> {
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">continue</span>;
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">/*Get data of the section using libbfd functions and copy them into the Binary object&#39;s elements
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">        in the sections vector*/</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">/*Signature for these functions changed compared to the book&#39;s*/</span>
+</span></span><span style="display:flex;"><span>        vma <span style="color:#ff79c6">=</span> bfd_section_vma(bfd_sec);
+</span></span><span style="display:flex;"><span>        size <span style="color:#ff79c6">=</span> bfd_section_size(bfd_sec);
+</span></span><span style="display:flex;"><span>        secname <span style="color:#ff79c6">=</span> bfd_section_name(bfd_sec);
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span>(<span style="color:#ff79c6">!</span>secname) secname <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#34;&lt;unnamed&gt;&#34;</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        bin<span style="color:#ff79c6">-&gt;</span>sections.push_back(Section());
+</span></span><span style="display:flex;"><span>        sec <span style="color:#ff79c6">=</span> <span style="color:#ff79c6">&amp;</span>bin<span style="color:#ff79c6">-&gt;</span>sections.back();
+</span></span><span style="display:flex;"><span>        sec<span style="color:#ff79c6">-&gt;</span>binary <span style="color:#ff79c6">=</span> bin;
+</span></span><span style="display:flex;"><span>        sec<span style="color:#ff79c6">-&gt;</span>name <span style="color:#ff79c6">=</span> std<span style="color:#ff79c6">::</span>string(secname);
+</span></span><span style="display:flex;"><span>        sec<span style="color:#ff79c6">-&gt;</span>type <span style="color:#ff79c6">=</span> sectype;
+</span></span><span style="display:flex;"><span>        sec<span style="color:#ff79c6">-&gt;</span>vma <span style="color:#ff79c6">=</span> vma;
+</span></span><span style="display:flex;"><span>        sec<span style="color:#ff79c6">-&gt;</span>size <span style="color:#ff79c6">=</span> size;
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        sec<span style="color:#ff79c6">-&gt;</span>bytes <span style="color:#ff79c6">=</span> (<span style="color:#8be9fd">uint8_t</span><span style="color:#ff79c6">*</span>)malloc(size); <span style="color:#6272a4">/*Allocate enough space to copy the section&#39;s content into the Binary object*/</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span>(<span style="color:#ff79c6">!</span>sec<span style="color:#ff79c6">-&gt;</span>bytes) {
+</span></span><span style="display:flex;"><span>            fprintf(stderr, <span style="color:#f1fa8c">&#34;out of memory</span><span style="color:#f1fa8c">\n</span><span style="color:#f1fa8c">&#34;</span>);
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">-</span><span style="color:#bd93f9">1</span>;
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>        <span style="color:#6272a4">/*copy the contents of the section into the Binary&#39;s section*/</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span>(<span style="color:#ff79c6">!</span>bfd_get_section_contents(bfd_h, bfd_sec, sec<span style="color:#ff79c6">-&gt;</span>bytes, <span style="color:#bd93f9">0</span>, size)) {
+</span></span><span style="display:flex;"><span>            fprintf(stderr, <span style="color:#f1fa8c">&#34;failed to read section &#39;%s&#39; (%s)</span><span style="color:#f1fa8c">\n</span><span style="color:#f1fa8c">&#34;</span>,
+</span></span><span style="display:flex;"><span>            secname, bfd_errmsg(bfd_get_error()));
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">-</span><span style="color:#bd93f9">1</span>;
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> <span style="color:#bd93f9">0</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>In libbfd, sections are represented by <code>asection</code> structures linked in a list. The loader iterates over this list and only processes <strong>code</strong> (<code>SEC_CODE</code>) and <strong>data</strong> (<code>SEC_DATA</code>) sections. For each relevant section, it copies the <strong>type, virtual address, size, name, and raw bytes</strong> into a <code>Section</code> object in the <code>Binary</code>. The section bytes are allocated and filled using <code>bfd_get_section_contents()</code>. Once all code and data sections are copied, the section-loading process is complete.</p>
+<h1 id="testing-the-loader">
+  Testing the loader
+  <a class="heading-link" href="#testing-the-loader">
+    <i class="fa-solid fa-link" aria-hidden="true" title="Link to heading"></i>
+    <span class="sr-only">Link to heading</span>
+  </a>
+</h1>
+<p>Now with the interface <code>loader.h</code> and the binary loader <code>loader.cc</code> both implemented, all that remains is testing the binary loader.</p>
+<p>I have included the code for the helper binary that runs the loader and the necessary <code>Makefile</code> to build it in the GitHub repo.</p>
+<p>Running the binary loader on <code>/bin/sh</code> for example gives us :</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>loaded binary <span style="color:#f1fa8c">&#39;/bin/ls&#39;</span> elf64-x86-64/i386:x86-64 <span style="color:#ff79c6">(</span><span style="color:#bd93f9">64</span> bits<span style="color:#ff79c6">)</span> entry@0x00000000000054f0
+</span></span><span style="display:flex;"><span> 0x0000000000000350 <span style="color:#bd93f9">80</span>       .note.gnu.property   DATA
+</span></span><span style="display:flex;"><span> 0x00000000000003a0 <span style="color:#bd93f9">36</span>       .note.gnu.build-id   DATA
+</span></span><span style="display:flex;"><span> 0x00000000000003c4 <span style="color:#bd93f9">28</span>       .interp              DATA
+</span></span><span style="display:flex;"><span> 0x00000000000003e0 <span style="color:#bd93f9">156</span>      .gnu.hash            DATA
+</span></span><span style="display:flex;"><span> 0x0000000000000480 <span style="color:#bd93f9">3168</span>     .dynsym              DATA
+</span></span><span style="display:flex;"><span> 0x00000000000010e0 <span style="color:#bd93f9">1590</span>     .dynstr              DATA
+</span></span><span style="display:flex;"><span> 0x0000000000001716 <span style="color:#bd93f9">264</span>      .gnu.version         DATA
+</span></span><span style="display:flex;"><span> 0x0000000000001820 <span style="color:#bd93f9">208</span>      .gnu.version_r       DATA
+</span></span><span style="display:flex;"><span> 0x00000000000018f0 <span style="color:#bd93f9">2928</span>     .rela.dyn            DATA
+</span></span><span style="display:flex;"><span> 0x0000000000002460 <span style="color:#bd93f9">88</span>       .relr.dyn            DATA
+</span></span><span style="display:flex;"><span> 0x0000000000003000 <span style="color:#bd93f9">27</span>       .init                CODE
+</span></span><span style="display:flex;"><span> 0x0000000000003040 <span style="color:#bd93f9">103171</span>   .text                CODE
+</span></span><span style="display:flex;"><span> 0x000000000001c344 <span style="color:#bd93f9">13</span>       .fini                CODE
+</span></span><span style="display:flex;"><span> 0x000000000001d000 <span style="color:#bd93f9">21608</span>    .rodata              DATA
+</span></span><span style="display:flex;"><span> 0x0000000000022468 <span style="color:#bd93f9">2676</span>     .eh_frame_hdr        DATA
+</span></span><span style="display:flex;"><span> 0x0000000000022ee0 <span style="color:#bd93f9">11216</span>    .eh_frame            DATA
+</span></span><span style="display:flex;"><span> 0x0000000000025ab0 <span style="color:#bd93f9">32</span>       .note.ABI-tag        DATA
+</span></span><span style="display:flex;"><span> 0x0000000000026d10 <span style="color:#bd93f9">8</span>        .init_array          DATA
+</span></span><span style="display:flex;"><span> 0x0000000000026d18 <span style="color:#bd93f9">8</span>        .fini_array          DATA
+</span></span><span style="display:flex;"><span> 0x0000000000026d20 <span style="color:#bd93f9">3384</span>     .data.rel.ro         DATA
+</span></span><span style="display:flex;"><span> 0x0000000000027a58 <span style="color:#bd93f9">496</span>      .dynamic             DATA
+</span></span><span style="display:flex;"><span> 0x0000000000027c48 <span style="color:#bd93f9">952</span>      .got                 DATA
+</span></span><span style="display:flex;"><span> 0x0000000000028000 <span style="color:#bd93f9">608</span>      .data                DATA
+</span></span><span style="display:flex;"><span>scanned symbol tables
+</span></span><span style="display:flex;"><span> __ctype_toupper_loc                      0x0000000000000000 FUNC
+</span></span><span style="display:flex;"><span> getenv                                   0x0000000000000000 FUNC
+</span></span><span style="display:flex;"><span> cap_to_text                              0x0000000000000000 FUNC
+</span></span><span style="display:flex;"><span> sigprocmask                              0x0000000000000000 FUNC
+</span></span><span style="display:flex;"><span> __snprintf_chk                           0x0000000000000000 FUNC
+</span></span><span style="display:flex;"><span> raise                                    0x0000000000000000 FUNC
+</span></span><span style="display:flex;"><span> free                                     0x0000000000000000 FUNC
+</span></span><span style="display:flex;"><span> __vfprintf_chk                           0x0000000000000000 FUNC
+</span></span><span style="display:flex;"><span>...
+</span></span></code></pre></div>
+      </div>
+
+
+      <footer>
+        
+
+
+        
+        
+        
+        
+        
+        
+        
+      </footer>
+    </article>
+
+    
+  </section>
+
+    </div>
+
+    <footer class="footer">
+  <section class="container">
+    ©
+    
+    2026
+     Dairi Oussama Abderrahmane 
+    ·
+    
+    Powered by <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> & <a href="https://github.com/luizdepra/hugo-coder/" target="_blank" rel="noopener">Coder</a>.
+    
+  </section>
+</footer>
+
+  </main>
+
+  
+
+  
+  
+  <script src="../../js/coder.min.6ae284be93d2d19dad1f02b0039508d9aab3180a12a06dcc71b0b0ef7825a317.js" integrity="sha256-auKEvpPS0Z2tHwKwA5UI2aqzGAoSoG3McbCw73gloxc="></script>
+  
+
+  
+
+  
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</body>
+</html>
