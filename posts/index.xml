@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Posts on oussachi</title>
-    <link>http://localhost:1313/posts/</link>
+    <link>https://oussachi.github.io/posts/</link>
     <description>Recent content in Posts on oussachi</description>
     <generator>Hugo</generator>
     <language>en-us</language>
     <lastBuildDate>Tue, 24 Feb 2026 00:00:00 +0000</lastBuildDate>
-    <atom:link href="http://localhost:1313/posts/index.xml" rel="self" type="application/rss+xml" />
+    <atom:link href="https://oussachi.github.io/posts/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Building a Binary Loader</title>
-      <link>http://localhost:1313/posts/building-a-binary-loader/</link>
+      <link>https://oussachi.github.io/posts/building-a-binary-loader/</link>
       <pubDate>Tue, 24 Feb 2026 00:00:00 +0000</pubDate>
-      <guid>http://localhost:1313/posts/building-a-binary-loader/</guid>
+      <guid>https://oussachi.github.io/posts/building-a-binary-loader/</guid>
       <description>&lt;h1 id=&#34;introduction&#34;&gt;&#xA;  Introduction&#xA;  &lt;a class=&#34;heading-link&#34; href=&#34;#introduction&#34;&gt;&#xA;    &lt;i class=&#34;fa-solid fa-link&#34; aria-hidden=&#34;true&#34; title=&#34;Link to heading&#34;&gt;&lt;/i&gt;&#xA;    &lt;span class=&#34;sr-only&#34;&gt;Link to heading&lt;/span&gt;&#xA;  &lt;/a&gt;&#xA;&lt;/h1&gt;&#xA;&lt;p&gt;Binary loading and analysis are essential in reverse engineering, debugging, and security research. While Linux uses ELF as the standard binary format, manually parsing it is tedious and error-prone.&lt;/p&gt;&#xA;&lt;p&gt;This project implements a &lt;strong&gt;custom binary loader&lt;/strong&gt;, following the book &lt;em&gt;Practical Binary Analysis&lt;/em&gt;, with fixes to the original code to account for &lt;strong&gt;changes in function signatures&lt;/strong&gt;. It uses &lt;strong&gt;libbfd&lt;/strong&gt;, the GNU Binary File Descriptor library, to handle low-level parsing. The loader only loads &lt;strong&gt;function symbols&lt;/strong&gt; and &lt;strong&gt;code/data sections&lt;/strong&gt;, providing a structured and reusable interface.&lt;/p&gt;</description>
     </item>
   </channel>
